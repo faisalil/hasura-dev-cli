@@ -38,6 +38,8 @@ Legacy distribution repositories have been retired:
 
 Use this repository as the single public distribution source.
 
+Minimum recommended CLI version: `v0.1.3`.
+
 ## Runtime commands
 
 `hasura-dev` supports Docker-free local Hasura runtime commands:
@@ -45,6 +47,13 @@ Use this repository as the single public distribution source.
 - `hasura-dev server start-dev`
 - `hasura-dev server status`
 - `hasura-dev server stop`
+
+## Version metadata
+
+From `v0.1.3`, `hasura-dev version` includes build metadata fields:
+
+- `build_date_local`
+- `build_age`
 
 ## Engine manifest source
 
