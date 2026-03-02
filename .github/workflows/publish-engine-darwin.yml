@@ -1,0 +1,111 @@
+name: Publish Engine Darwin
+
+on:
+  workflow_dispatch:
+    inputs:
+      engine_tag:
+        description: "Tag from hasura/graphql-engine to build (e.g. v2.48.12)"
+        required: true
+        default: "v2.48.12"
+      release_tag:
+        description: "Release tag in this assets repo (e.g. v2.48.12)"
+        required: true
+        default: "v2.48.12"
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-publish:
+    runs-on: macos-14
+    env:
+      ENGINE_TAG: ${{ github.event.inputs.engine_tag }}
+      RELEASE_TAG: ${{ github.event.inputs.release_tag }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout assets repo
+        uses: actions/checkout@v4
+
+      - name: Checkout hasura/graphql-engine
+        uses: actions/checkout@v4
+        with:
+          repository: hasura/graphql-engine
+          ref: ${{ env.ENGINE_TAG }}
+          path: graphql-engine-src
+
+      - name: Setup Haskell (GHC + cabal)
+        uses: haskell-actions/setup@v2
+        with:
+          ghc-version: "9.10.2"
+          cabal-version: "3.12.1.0"
+
+      - name: Install build dependencies
+        run: |
+          brew update
+          brew install pcre unixodbc libpq openssl@3
+          LIBPQ_PREFIX="$(brew --prefix libpq)"
+          ODBC_PREFIX="$(brew --prefix unixodbc)"
+          OPENSSL_PREFIX="$(brew --prefix openssl@3)"
+          echo "${LIBPQ_PREFIX}/bin" >> "${GITHUB_PATH}"
+          echo "PG_CONFIG=${LIBPQ_PREFIX}/bin/pg_config" >> "${GITHUB_ENV}"
+          echo "PKG_CONFIG_PATH=${LIBPQ_PREFIX}/lib/pkgconfig:${ODBC_PREFIX}/lib/pkgconfig:${OPENSSL_PREFIX}/lib/pkgconfig" >> "${GITHUB_ENV}"
+          echo "LDFLAGS=-L${LIBPQ_PREFIX}/lib -L${ODBC_PREFIX}/lib -L${OPENSSL_PREFIX}/lib" >> "${GITHUB_ENV}"
+          echo "CPPFLAGS=-I${LIBPQ_PREFIX}/include -I${ODBC_PREFIX}/include -I${OPENSSL_PREFIX}/include" >> "${GITHUB_ENV}"
+          echo "DYLD_LIBRARY_PATH=${LIBPQ_PREFIX}/lib:${ODBC_PREFIX}/lib:${OPENSSL_PREFIX}/lib" >> "${GITHUB_ENV}"
+
+      - name: Prepare build config
+        working-directory: graphql-engine-src
+        run: |
+          ln -sf cabal/dev-sh.project.local cabal.project.local
+          echo "${ENGINE_TAG#v}" > server/CURRENT_VERSION
+
+      - name: Build graphql-engine (darwin-arm64)
+        working-directory: graphql-engine-src
+        run: |
+          cabal update
+          cabal build exe:graphql-engine --project-file=cabal/dev-sh.project
+
+      - name: Package artifacts
+        run: |
+          ENGINE_BIN="$(cd graphql-engine-src && cabal list-bin exe:graphql-engine --project-file=cabal/dev-sh.project)"
+          BUNDLE_DIR="$(pwd)/bundle"
+          chmod +x scripts/bundle-macos-binary.sh
+          scripts/bundle-macos-binary.sh "${ENGINE_BIN}" "${BUNDLE_DIR}"
+          tar -C "${BUNDLE_DIR}" -czf graphql-engine-darwin-arm64.tar.gz graphql-engine lib
+          DARWIN_SHA="$(shasum -a 256 graphql-engine-darwin-arm64.tar.gz | awk '{print $1}')"
+          RELEASE_BASE_URL="https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}"
+          DARWIN_ASSET_NAME="graphql-engine-darwin-arm64.tar.gz"
+          DARWIN_URL="${RELEASE_BASE_URL}/${DARWIN_ASSET_NAME}"
+          chmod +x scripts/generate-manifest.sh
+          scripts/generate-manifest.sh "${RELEASE_TAG}" "${RELEASE_BASE_URL}" "${DARWIN_URL}" "${DARWIN_SHA}" "${DARWIN_ASSET_NAME}"
+
+      - name: Smoke test packaged binary
+        run: |
+          TEST_DIR="/tmp/graphql-engine-bundle-test"
+          rm -rf "${TEST_DIR}"
+          mkdir -p "${TEST_DIR}"
+          tar -xzf graphql-engine-darwin-arm64.tar.gz -C "${TEST_DIR}"
+          env -i PATH="/usr/bin:/bin:/usr/sbin:/sbin" "${TEST_DIR}/graphql-engine" version
+
+      - name: Create release if missing
+        run: |
+          if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
+            echo "Release ${RELEASE_TAG} already exists"
+          else
+            gh release create "${RELEASE_TAG}" \
+              --title "${RELEASE_TAG}" \
+              --notes "graphql-engine darwin-arm64 asset + manifest for Hasura dev runtime"
+          fi
+
+      - name: Upload release assets
+        run: |
+          gh release upload "${RELEASE_TAG}" graphql-engine-darwin-arm64.tar.gz manifest.json checksums.txt --clobber
+
+      - name: Verify release URLs
+        run: |
+          BASE_URL="https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}"
+          curl -fL "${BASE_URL}/manifest.json" >/dev/null
+          curl -fL "${BASE_URL}/graphql-engine-darwin-arm64.tar.gz" -o /tmp/graphql-engine-darwin-arm64.tar.gz
+          EXPECTED="$(awk '{print $1}' checksums.txt)"
+          ACTUAL="$(shasum -a 256 /tmp/graphql-engine-darwin-arm64.tar.gz | awk '{print $1}')"
+          test "${EXPECTED}" = "${ACTUAL}"

@@ -1,0 +1,64 @@
+name: Publish Engine Manifest
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag in this assets repo (e.g. v2.48.12)"
+        required: true
+        default: "v2.48.12"
+      darwin_url:
+        description: "URL to graphql-engine-darwin-arm64 asset"
+        required: true
+      darwin_sha256:
+        description: "SHA256 for graphql-engine-darwin-arm64 asset"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  publish-manifest:
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ github.event.inputs.release_tag }}
+      DARWIN_URL: ${{ github.event.inputs.darwin_url }}
+      DARWIN_SHA256: ${{ github.event.inputs.darwin_sha256 }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout assets repo
+        uses: actions/checkout@v4
+
+      - name: Validate binary checksum from URL
+        run: |
+          DARWIN_ASSET_NAME="$(basename "${DARWIN_URL}")"
+          curl -fL "${DARWIN_URL}" -o "${DARWIN_ASSET_NAME}"
+          ACTUAL_SHA="$(shasum -a 256 "${DARWIN_ASSET_NAME}" | awk '{print $1}')"
+          test "${ACTUAL_SHA}" = "${DARWIN_SHA256}"
+
+      - name: Generate manifest
+        run: |
+          chmod +x scripts/generate-manifest.sh
+          RELEASE_BASE_URL="https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}"
+          DARWIN_ASSET_NAME="$(basename "${DARWIN_URL}")"
+          scripts/generate-manifest.sh "${RELEASE_TAG}" "${RELEASE_BASE_URL}" "${DARWIN_URL}" "${DARWIN_SHA256}" "${DARWIN_ASSET_NAME}"
+          jq . manifest.json >/dev/null
+
+      - name: Create release if missing
+        run: |
+          if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
+            echo "Release ${RELEASE_TAG} already exists"
+          else
+            gh release create "${RELEASE_TAG}" \
+              --title "${RELEASE_TAG}" \
+              --notes "manifest assets for Hasura dev runtime"
+          fi
+
+      - name: Upload manifest assets
+        run: |
+          gh release upload "${RELEASE_TAG}" manifest.json checksums.txt --clobber
+
+      - name: Verify manifest URL
+        run: |
+          BASE_URL="https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}"
+          curl -fL "${BASE_URL}/manifest.json" >/dev/null
