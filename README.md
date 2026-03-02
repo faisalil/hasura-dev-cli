@@ -15,17 +15,28 @@ Source code for the CLI runtime changes is tracked separately in:
 
 ## Install
 
-Homebrew install from this repo formula:
+Homebrew install from this repo (single-repo tap):
 
 ```bash
-brew install https://raw.githubusercontent.com/faisalil/hasura-dev-cli/main/Formula/hasura-dev.rb
+brew tap faisalil/hasura-dev-cli https://github.com/faisalil/hasura-dev-cli
+brew install faisalil/hasura-dev-cli/hasura-dev
 ```
 
 Upgrade:
 
 ```bash
+brew update
 brew upgrade hasura-dev
 ```
+
+## Deprecation notice
+
+Legacy distribution repositories have been retired:
+
+- `faisalil/hasura-dev-assets`
+- `faisalil/homebrew-hasura-dev`
+
+Use this repository as the single public distribution source.
 
 ## Runtime commands
 
