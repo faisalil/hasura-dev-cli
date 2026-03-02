@@ -1,26 +1,26 @@
 class HasuraDev < Formula
   desc "Docker-free Hasura v2 development CLI runtime"
   homepage "https://github.com/faisalil/hasura-dev-cli"
-  version "0.1.1"
+  version "0.1.2"
   license "Apache-2.0"
 
   on_macos do
     if Hardware::CPU.arm?
-      url "https://github.com/faisalil/hasura-dev-cli/releases/download/v0.1.1/hasura-dev-darwin-arm64.tar.gz"
-      sha256 "afb9efb7892a82367aff32c127f9bcbaaed8e31dbf67a61cee5d738828071a8e"
+      url "https://github.com/faisalil/hasura-dev-cli/releases/download/v0.1.2/hasura-dev-darwin-arm64.tar.gz"
+      sha256 "f0c50c4c7838443c259480a981d4270f23456c06cfce50b015d3bc14504478c7"
     else
-      url "https://github.com/faisalil/hasura-dev-cli/releases/download/v0.1.1/hasura-dev-darwin-amd64.tar.gz"
-      sha256 "7b84a7235639b6b74e6411d8d93a3abe821a9d2d542d93757c4b4d9285ad016d"
+      url "https://github.com/faisalil/hasura-dev-cli/releases/download/v0.1.2/hasura-dev-darwin-amd64.tar.gz"
+      sha256 "ddd349281db161797ee755a734f989e683fcdf58fe9eb42d8d3b707c4f20003b"
     end
   end
 
   on_linux do
     if Hardware::CPU.arm?
-      url "https://github.com/faisalil/hasura-dev-cli/releases/download/v0.1.1/hasura-dev-linux-arm64.tar.gz"
-      sha256 "4bb5ab6f6136dd2e830db422bbd349ebf44c87ea435586c35d0527d278ccfa1c"
+      url "https://github.com/faisalil/hasura-dev-cli/releases/download/v0.1.2/hasura-dev-linux-arm64.tar.gz"
+      sha256 "7a686072e0fe9766f4ca2d6b4be756cfcabf3a74be517ecbdb6c1b8af393a081"
     else
-      url "https://github.com/faisalil/hasura-dev-cli/releases/download/v0.1.1/hasura-dev-linux-amd64.tar.gz"
-      sha256 "4c4891ae1c6a16bbb16b0c31f0bf5b260ccc233aca76a6de8cb96984fc6e6bce"
+      url "https://github.com/faisalil/hasura-dev-cli/releases/download/v0.1.2/hasura-dev-linux-amd64.tar.gz"
+      sha256 "7b4ffc6dd47667fa5d6b6eedd1cee04bb9b83165e619efbc9e90c1c4241bf28c"
     end
   end
 
